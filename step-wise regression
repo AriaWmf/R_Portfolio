@@ -1,0 +1,55 @@
+
+```{r}
+
+#  step-wise regression with all the variables. 
+
+logit0=glm(default~LIMIT_BAL + as.factor(SEX) + as.factor(EDUCATION) + as.factor(MARRIAGE) + AGE+
+            as.factor(REPAY_sept)+as.factor(REPAY_aug)+as.factor(REPAY_july)+as.factor(REPAY_june)+
+            as.factor(REPAY_may)+as.factor(REPAY_april)+BILL_AMT89  + BILL_AMT78 + BILL_AMT67 + 
+             BILL_AMT56 + BILL_AMT45+PAY_AMT89+PAY_AMT78+PAY_AMT67+PAY_AMT56+PAY_AMT45,
+           data=creditinfo1)
+library(broom)
+lm.step<-step(logit0)
+library(car)
+a=tidy(lm.step)
+
+write.csv(a,file = "logit_step_wise.csv")
+```
+```{r}
+# select_model_1
+logit2=glm(default~LIMIT_BAL + as.factor(SEX) + as.factor(EDUCATION) + as.factor(MARRIAGE) + AGE, data=creditinfo1)
+summary(logit2)
+```
+
+```{r}
+# select_model_2
+logit3=glm(default~ as.factor(REPAY_sept)+as.factor(REPAY_aug)+as.factor(REPAY_july)+as.factor(REPAY_june)+as.factor(REPAY_may)+as.factor(REPAY_april),data=creditinfo1)
+summary(logit3)
+```
+
+
+```{r}
+# only with pay_AMT 
+logit4=glm(default~PAY_AMT89+PAY_AMT78+PAY_AMT56, data=creditinfo1)
+summary(logit4)
+
+```
+
+
+```{r}
+# final_model _1 
+logit1=glm(default~LIMIT_BAL + as.factor(SEX) + as.factor(EDUCATION) + as.factor(MARRIAGE) + AGE + as.factor(REPAY_sept)+as.factor(REPAY_aug)+as.factor(REPAY_july)+as.factor(REPAY_june)+as.factor(REPAY_may)+as.factor(REPAY_april)+PAY_AMT89+PAY_AMT78+PAY_AMT56,data=creditinfo1)
+summary(logit1)
+```
+
+```{r}
+
+logit_final=glm(default~LIMIT_BAL + as.factor(SEX) + as.factor(EDUCATION) + as.factor(MARRIAGE) + AGE + as.factor(REPAY_sept)+as.factor(REPAY_aug)+as.factor(REPAY_july)+as.factor(REPAY_june)+as.factor(REPAY_may)+as.factor(REPAY_april), data=creditinfo1)
+
+summary(logit_final)
+```
+```{r}
+logit_final0=glm(default~LIMIT_BAL + as.factor(SEX) + as.factor(EDUCATION) + as.factor(MARRIAGE) + AGE + as.factor(REPAY_sept)+as.factor(REPAY_aug)+as.factor(REPAY_july), data=creditinfo1)
+
+summary(logit_final0)
+```
