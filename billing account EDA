@@ -1,0 +1,118 @@
+
+```{r}
+# calculate % change in billing amount
+creditinfo1[,"BILL_AMT89"] = (creditinfo1$BILL_AMT1-creditinfo1$BILL_AMT2)/creditinfo1$BILL_AMT2*100
+creditinfo1$BILL_AMT89[is.na(creditinfo1$BILL_AMT89)] <- 0
+creditinfo1$BILL_AMT89[!is.finite(creditinfo1$BILL_AMT89)] <- 0
+```
+
+```{r}
+# calculate % change in pay amount
+creditinfo1[,"PAY_AMT89"] = (creditinfo1$PAY_AMT1 - creditinfo1$PAY_AMT2)/creditinfo1$PAY_AMT2*100
+creditinfo1$PAY_AMT89[is.na(creditinfo1$PAY_AMT89)] <- 0
+creditinfo1$PAY_AMT89[!is.finite(creditinfo1$PAY_AMT89)] <- 0
+
+```
+
+```{r}
+# clean pay status
+# if pay <= 0 paid in time or in advance
+# if 0 < pay <= 3 paid late
+# if pay > 3  paid very late
+creditinfo1[,"REPAY_sept"] = creditinfo1$PAY_0
+creditinfo1$REPAY_sept[creditinfo1$PAY_0 <= 0] = 1
+creditinfo1$REPAY_sept[creditinfo1$PAY_0 > 0 & creditinfo1$PAY_0 <= 3] = 2
+creditinfo1$REPAY_sept[creditinfo1$PAY_0 > 3] = 3
+summary(creditinfo1$REPAY_sept)
+
+```
+
+---
+# Exploratory Analysis 
+```{r}
+# default distribution
+creditinfo1 %>% count(default)
+
+ggplot(creditinfo1,aes(factor(default),fill = factor(default))) +  
+  geom_bar(aes(y = (..count..)/sum(..count..))) + labs(title ="Distribution of Default Payment Next Month", x = "Default Payment Next Month", y = "Percentage")+scale_fill_discrete(name = "Default",labels = c("No Default","Default"))+
+  theme_pubr(legend=)
+```
+
+```{r}
+# corr matrix for categorical vars 
+temp<-creditinfo1[,c(25,2:6)]
+sjp.corr(temp)
+sjp.corr(temp)
+```
+
+```{r}
+# corr matrix for bill_amt vars 
+temp1<-creditinfo1[,c(25,26:30)]
+sjp.corr(temp1)
+```
+
+```{r}
+# corr matrix for pay_amt vars 
+temp2<-creditinfo1[,c(25,31:35)]
+temp2[,2:6] <-log(temp2[,2:6])
+sjp.corr(temp2)
+```
+
+```{r}
+# corr matrix for pay_amt vars 
+temp3<-creditinfo1[,c(25,36:41)]
+sjp.corr(temp3)
+```
+
+
+```{r}
+# default vs. limit balance 
+ggplot(creditinfo1,aes(x=factor(default),y=LIMIT_BAL,fill=factor(default)))+geom_boxplot()+labs(title ="Default vs. Amount of given credit", x = "Default Next Month", y = "Amount of given credit")+scale_fill_discrete(name = "Default",labels = c("No Default","Default"))+theme_pubr()
+```
+
+```{r}
+# default vs. gender
+
+ggplot(creditinfo1,aes(x=factor(default),fill=factor(SEX)))+geom_bar(aes(y = (..count..)/sum(..count..)),position='fill')+labs(title ="Default vs. Sex", x = "Default Payment Next Month, Default = 1", y = "Percentage")+scale_fill_discrete(name = "Sex",labels = c("Male","Female"))+theme_pubr()
+
+```
+```{r}
+# default vs. pay status
+
+melted.paystatus <- melt(creditinfo1[,c(25,36:41)],id.vars='default',measure.vars = c('REPAY_sept','REPAY_aug','REPAY_july','REPAY_june','REPAY_may',"REPAY_april"))
+
+head(melted.paystatus)
+
+ggplot(melted.paystatus,aes(x=factor(default),fill=factor(value),))+geom_bar(aes(y = (..count..)/sum(..count..)),position='fill')+labs(title ="Default vs. Repayment Status", x = "Default Payment Next Month, Default = 1", y = "Percentage")+scale_fill_discrete(name = "Repayment Status",labels = c("On Time","Late","Very Late"))+theme_pubr()+facet_grid(.~variable)
+
+```
+
+```{r}
+# default vs. marriage
+
+# clean data, some marriage status coded as 0, merge these into cat3=other
+creditinfo1$MARRIAGE[creditinfo1$MARRIAGE == 0] = 3
+
+# plot
+ggplot(creditinfo1,aes(x=factor(default),fill=factor(MARRIAGE)))+geom_bar(aes(y = (..count..)/sum(..count..)),position='fill')+labs(title ="Default Percentage vs. Marriage Status", x = "Default Payment Next Month, Default = 1", y = "Percentage")+scale_fill_discrete(name = "MARRIAGE",labels = c("Married","Single","Other"))+theme_pubr()
+```
+
+```{r}
+# plot default vs. age 
+ggplot(creditinfo1,aes(x=factor(default),y=AGE,fill=factor(default)))+geom_boxplot()+labs(title ="Default Percentage vs. Age", x = "Default Next Month", y = "Age")+scale_fill_discrete(name = "Default",labels = c("No Default","Default"))+theme_pubr()
+```
+
+```{r}
+# plot default vs. education
+# clean education
+creditinfo1$EDUCATION[creditinfo1$EDUCATION==6] = 4
+creditinfo1$EDUCATION[creditinfo1$EDUCATION==5] = 4
+creditinfo1$EDUCATION[creditinfo1$EDUCATION==0] = 4
+ggplot(creditinfo1,aes(x=factor(default),fill=factor(EDUCATION)))+geom_bar(position='fill')+labs(title ="Default Percentage vs. EDUCATION", x = "Default Payment Next Month, Default = 1", y = "Percentage")+scale_fill_discrete(name = "Education Level",labels = c("Graduate School", "University", "High Schhol","Others"))+theme_pubr()
+```
+
+```{r}
+ggplot(melted.pay,aes(x=factor(default),y=value,fill=factor(default)))+geom_boxplot()+labs(title ="Default vs. % Change in Repayment", x = "Default Next Month", y = "Percentage Monthly Change in Repayment status")+scale_fill_discrete(name = "Default",,labels = c("No Default","Default"))+theme_pubr()+scale_y_continuous(limits=c(-100,100))+facet_grid(. ~ variable)
+
+```
+
