@@ -1,0 +1,272 @@
+#######
+#######MQM DEC520Q Project Update#######
+###Team: B21
+###Team Member: Mengfei Aria Wang, Zhiying Anna Fan, Raj Parikh, Ricardo Goncalves
+
+##############
+# credit
+## https://www.tidytextmining.com/tidytext.html#the-unnest_tokens-function
+## MQM Data Science for Business
+## Datacamp
+
+#######NLP#######
+
+sum(is.na(apple))
+sum(is.na(ms))
+
+# seperate with news/no news rows for text-mining
+AAPL <- apple[!is.na(apple$News),]
+AAPLna <- apple[is.na(apple$News),]
+MSFT <- ms[!is.na(ms$News),]
+MSFTna <- ms[is.na(ms$News),]
+
+# clean text function
+clean.text = function(x)
+{
+  # remove at
+  x = gsub("@\\w+", " ", x)
+  # remove punctuation
+  x = gsub("[[:punct:]]", " ", x)
+  # remove numbers
+  x = gsub("[[:digit:]]", " ", x)
+  # remove links http
+  x = gsub("http\\w+", " ", x)
+  # remove tabs
+  x = gsub("[ |\t]{2,}", " ", x)
+  # remove blank spaces at the beginning
+  x = gsub("^ ", " ", x)
+  # remove blank spaces at the end
+  x = gsub(" $", " ", x)
+  # remove string length = 1
+  x = gsub('\\b\\w{1}\\b','',x)
+  return(x)
+}
+
+## use the function to clean AAPL & MSFT 
+AAPL <- AAPL %>%
+  mutate(News = clean.text(News))
+
+MSFT <- MSFT %>%
+  mutate(News = clean.text(News))
+
+# generate corpus
+## first we load this bigram corpus generator fucntion from http://tm.r-forge.r-project.org/faq.html
+bigram_tokenizer <- function(x) {
+  unlist(lapply(ngrams(words(x), 2), paste, collapse = " "), use.names = FALSE)
+}
+## AAPL
+### create corpus
+AAPL.corpus <- VCorpus(VectorSource(AAPL$News))
+AAPL.corpus[[1]]$content
+### to lower case
+AAPL.corpus <- tm_map(AAPL.corpus, content_transformer(tolower))
+AAPL.corpus[[1]]$content
+#### remove unhelpful words
+AAPL.corpus <- tm_map(AAPL.corpus, removeWords, stopwords("english"))
+AAPL.corpus[[1]]$content
+#### stemming (remove variations from words)
+AAPL.corpus <- tm_map(AAPL.corpus, stemDocument)
+AAPL.corpus[[1]]$content
+### create term-document matrix
+AAPL.tdm <- TermDocumentMatrix(AAPL.corpus, control = list(tokenize = bigram_tokenizer))
+inspect(AAPL.tdm)
+#### create a matrix
+AAPL.m <- as.matrix(AAPL.tdm)
+AAPL.v <- sort(rowSums(AAPL.m),decreasing=TRUE)
+AAPL.d <- data.frame(word = names(AAPL.v),freq=AAPL.v)
+AAPL.d
+sum(AAPL.d$freq)
+
+## MSFT
+### create corpus
+MSFT.corpus <- VCorpus(VectorSource(MSFT$News))
+MSFT.corpus[[1]]$content
+### to lower case
+MSFT.corpus <- tm_map(MSFT.corpus, content_transformer(tolower))
+MSFT.corpus[[1]]$content
+#### remove unhelpful words
+MSFT.corpus <- tm_map(MSFT.corpus, removeWords, stopwords("english"))
+MSFT.corpus[[1]]$content
+#### stemming (remove variations from words)
+MSFT.corpus <- tm_map(MSFT.corpus, stemDocument)
+MSFT.corpus[[1]]$content
+### create term-document matrix
+MSFT.tdm <- TermDocumentMatrix(MSFT.corpus, control = list(tokenize = bigram_tokenizer))
+inspect(MSFT.tdm)
+#### create a matrix
+MSFT.m <- as.matrix(MSFT.tdm)
+MSFT.v <- sort(rowSums(MSFT.m),decreasing=TRUE)
+MSFT.d <- data.frame(word = names(MSFT.v),freq=MSFT.v)
+MSFT.d
+sum(MSFT.d$freq)
+
+#######Exploratory Data Analysis#######
+# Wordcloud 
+set.seed(1234)
+wordcloud(words = AAPL.d$word, freq = AAPL.d$freq,
+          max.words=150, min.freq=1,scale=c(2,.25),random.order=FALSE, rot.per=0.5, 
+          colors=brewer.pal(8, "Dark2"))
+wordcloud(words = MSFT.d$word, freq = MSFT.d$freq,
+          max.words=100, min.freq=1,scale=c(1.5,.2),random.order=FALSE, rot.per=0.5, 
+          colors=brewer.pal(8, "Dark2"))
+
+#######Topic Modeling#######
+# AAPL Topic Mdeling
+## convert from a Matrix to a simple_triplet_matrix
+AAPL.x <- as.simple_triplet_matrix(AAPL.tdm)
+## choosing the number of topics
+AAPL.tpcs <- topics(AAPL.x,K=seq(from=3,to=15,by=1)) 
+## BF chose 3 topics
+summary(AAPL.tpcs, n=3)
+# extract topic probability matrix 
+### side notes:
+### tpcs$D deviance information 
+### tpcs$X matrix #documents by #words
+### tpcs$theta matrix #words by #topics (in topic prob of a word)
+### tpcs$omega matrix #documens by #topics
+AAPL.tpcs$omega[1,]
+# merge omegas back to AAPL dataframe for later analysis
+AAPL2 <- cbind(AAPL, AAPL.tpcs$omega)
+topic.names <- c('tpc1','tpc2','tpc3')
+
+names(AAPL2)[10:12] <- topic.names
+
+# MSFT Topic Mdeling
+## convert from a Matrix to a simple_triplet_matrix
+MSFT.x <- as.simple_triplet_matrix(MSFT.tdm)
+## choosing the number of topics
+MSFT.tpcs <- topics(MSFT.x,K=seq(from=3,to=15,by=1)) 
+## BF also chose 5 topics
+summary(MSFT.tpcs, n=3)
+# extract topic probability matrix 
+### side notes:
+### tpcs$D deviance information 
+### tpcs$X matrix #documents by #words
+### tpcs$theta matrix #words by #topics (in topic prob of a word)
+### tpcs$omega matrix #documens by #topics
+MSFT.tpcs$omega[1,]
+# merge omegas back to AAPL dataframe for later analysis
+MSFT2 <- cbind(MSFT, MSFT.tpcs$omega)
+names(MSFT2)[10:12] <- topic.names
+
+# tpcs modeling visualization 
+## dominant by weight
+### AAPL
+#### find the frequency of dominant topic
+AAPL.row.max <- rep(0, nrow(AAPL.tpcs$omega))
+for (i in 1:nrow(AAPL.tpcs$omega)) {
+  AAPL.row.max[i] <- which.max(AAPL.tpcs$omega[i,])
+  AAPL.row.max[i] <- paste(c("Topic", AAPL.row.max[i]), collapse = " ")
+}
+#### plot 
+ggplot(mapping = aes(as.factor(AAPL.row.max),group = as.factor(AAPL.row.max), fill = as.factor(AAPL.row.max))) + 
+  geom_bar() +labs(y ='Frequency', title = 'Apple: Number of Documents by Dominant Topics') + 
+  theme(legend.position = "none", axis.title.x=element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+          panel.background = element_blank()) 
+### MSFT
+MSFT.row.max <- rep(0, nrow(MSFT.tpcs$omega))
+for (i in 1:nrow(MSFT.tpcs$omega)) {
+  MSFT.row.max[i] <- which.max(MSFT.tpcs$omega[i,])
+  MSFT.row.max[i] <- paste(c("Topic", MSFT.row.max[i]), collapse = " ")
+}
+
+ggplot(mapping = aes(as.factor(MSFT.row.max),group = as.factor(MSFT.row.max), fill = as.factor(MSFT.row.max))) + 
+  geom_bar() +labs(y ='Frequency', title = 'Microsoft: Number of Documents by Dominant Topics') + 
+  theme(legend.position = "none", axis.title.x=element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank()) 
+
+## what are the 10 dominant bigram in each topic?
+### AAPL
+#### find bigrams' dominant topic
+dominant.bigram <- matrix(nrow = nrow(AAPL.tpcs$theta), ncol = 3)
+dominant.bigram[,1] <- row.names(AAPL.tpcs$theta)
+for (i in 1:nrow(AAPL.tpcs$theta)) {
+  index <- which.max(AAPL.tpcs$theta[i,])
+  dominant.bigram[i,2] <- index
+  dominant.bigram[i,3] <- AAPL.tpcs$theta[i,index]
+}
+dominant.bigram <- data.frame(dominant.bigram)
+
+#### find bigrams' dominant topic
+dominant.bigram <- matrix(nrow = nrow(AAPL.tpcs$theta), ncol = 3)
+dominant.bigram[,1] <- row.names(AAPL.tpcs$theta)
+for (i in 1:nrow(AAPL.tpcs$theta)) {
+  index <- which.max(AAPL.tpcs$theta[i,])
+  dominant.bigram[i,2] <- index
+  dominant.bigram[i,3] <- AAPL.tpcs$theta[i,index]
+}
+dominant.bigram <- data.frame(dominant.bigram)
+#### find the top 15 bigrams that are most likely to appear in each topic
+AAPL.dominant.bigram <- data.frame(matrix(NA, nrow = 1, ncol = 3))
+for (i in 1:5) {
+  temp <- dominant.bigram %>%
+    filter(X2 == i) %>%
+    top_n(20, X3)
+  AAPL.dominant.bigram <- rbind(AAPL.dominant.bigram,temp)
+}
+#### clean dataframe
+AAPL.dominant.bigram <- AAPL.dominant.bigram[-1,]
+names(AAPL.dominant.bigram) <- c('Bigram', 'Topic', 'Probability')
+AAPL.dominant.bigram$Topic <- paste('Topic',AAPL.dominant.bigram$Topic,sep = " ")
+AAPL.dominant.bigram$Probability <- as.numeric(substr(AAPL.dominant.bigram$Probability,1,4))/(10^(as.numeric(substr(AAPL.dominant.bigram$Probability,nchar(AAPL.dominant.bigram$Probability)-1,nchar(AAPL.dominant.bigram$Probability)))))*100
+AAPL.dominant.bigram$Topic[AAPL.dominant.bigram$Topic == 'Topic 1'] = 'Competitor/Client'
+AAPL.dominant.bigram$Topic[AAPL.dominant.bigram$Topic == 'Topic 2'] = 'In-house'
+AAPL.dominant.bigram$Topic[AAPL.dominant.bigram$Topic == 'Topic 3'] = 'Tech/Others'
+
+#### plot
+ggplot(AAPL.dominant.bigram,aes(x=reorder(Bigram,Probability), y=Probability, fill = factor(Topic))) +
+  geom_col(show.legend = FALSE) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(),axis.ticks.y=element_blank()) + 
+  facet_wrap(~Topic, scales = "free") +
+  coord_flip() +
+  scale_y_continuous(breaks = c(0,0.05,0.01))+
+  labs(y = 'In-topic Probability %', x = 'Bigrams', title = 'Apple: Top Bigrams in Each Topic')
+
+
+### MSFT  
+#### find bigrams' dominant topic
+dominant.bigram <- matrix(nrow = nrow(MSFT.tpcs$theta), ncol = 3)
+dominant.bigram[,1] <- row.names(MSFT.tpcs$theta)
+for (i in 1:nrow(MSFT.tpcs$theta)) {
+  index <- which.max(MSFT.tpcs$theta[i,])
+  dominant.bigram[i,2] <- index
+  dominant.bigram[i,3] <- MSFT.tpcs$theta[i,index]
+}
+dominant.bigram <- data.frame(dominant.bigram)
+#### find the top 15 bigrams that are most likely to appear in each topic
+MSFT.dominant.bigram <- data.frame(matrix(NA, nrow = 1, ncol = 3))
+for (i in 1:5) {
+  temp <- dominant.bigram %>%
+    filter(X2 == i) %>%
+    top_n(20, X3)
+  MSFT.dominant.bigram <- rbind(MSFT.dominant.bigram,temp)
+}
+
+#### clean dataframe
+MSFT.dominant.bigram <- MSFT.dominant.bigram[-1,]
+names(MSFT.dominant.bigram) <- c('Bigram', 'Topic', 'Probability')
+MSFT.dominant.bigram$Topic <- paste('Topic',MSFT.dominant.bigram$Topic,sep = " ")
+MSFT.dominant.bigram$Probability <- as.numeric(substr(MSFT.dominant.bigram$Probability,1,4))/(10^(as.numeric(substr(MSFT.dominant.bigram$Probability,nchar(MSFT.dominant.bigram$Probability)-1,nchar(MSFT.dominant.bigram$Probability)))))*100
+MSFT.dominant.bigram$Topic[MSFT.dominant.bigram$Topic == 'Topic 1'] = 'Company/Product/Marketing'
+MSFT.dominant.bigram$Topic[MSFT.dominant.bigram$Topic == 'Topic 2'] = 'Deals/Project'
+MSFT.dominant.bigram$Topic[MSFT.dominant.bigram$Topic == 'Topic 3'] = 'Regulation/Others'
+#### plot
+ggplot(MSFT.dominant.bigram,aes(x=reorder(Bigram,Probability), y=Probability, fill = factor(Topic))) +
+  geom_col(show.legend = FALSE) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(),axis.ticks.y=element_blank()) + 
+  facet_wrap(~Topic, scales = "free") +
+  coord_flip() +
+  scale_y_continuous(breaks = c(0,0.05,0.01))+
+  labs(y = 'In-topic Probability %', x = 'Bigrams', title = 'Microsoft: Top Bigrams in Each Topic')
+#ggplot(mapping=aes(dominant.bigram$))
+
+#######Neural Nets#######
+# data cleaning
+## assign AAPLna/MSFTna (days without new data) in-topic probability of zeros
+temp <- matrix(0,nrow = nrow(AAPLna), ncol = 3)
+AAPLna <- cbind(AAPLna,temp)
+
+names(AAPLna)[10:12] <- topic.names
+temp <- matrix(0,nrow = nrow(MSFTna), ncol = 3)
+MSFTna <- cbind(MSFTna,temp)
+names(MSFTna)[10:12] <- topic.names
