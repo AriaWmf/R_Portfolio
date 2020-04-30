@@ -1,0 +1,140 @@
+#######Neural Nets#######
+# data cleaning
+## assign AAPLna/MSFTna (days without new data) in-topic probability of zeros
+temp <- matrix(0,nrow = nrow(AAPLna), ncol = 3)
+AAPLna <- cbind(AAPLna,temp)
+
+names(AAPLna)[10:12] <- topic.names
+temp <- matrix(0,nrow = nrow(MSFTna), ncol = 3)
+MSFTna <- cbind(MSFTna,temp)
+names(MSFTna)[10:12] <- topic.names
+
+## we focus on analysis of price change against in-topic probabilities, get a final datatable that only contains target info
+#AAPL.data <- rbind(AAPL2[9:14], AAPLna[9:14])
+AAPL.data <- AAPL2[9:12]
+MSFT.data <- MSFT2[9:12]
+#MSFT.data <- rbind(MSFT2[9:14], MSFTna[9:14])
+
+# binary decrease 0; increase 1;
+for (i in 1:nrow(AAPL.data) )
+{
+  if (AAPL.data[i,1]<0) { 
+    AAPL.data[i,1]=0 }
+  else { 
+    AAPL.data[i,1]=1 }
+}
+
+for (i in 1:nrow(MSFT.data) )
+{
+  if (MSFT.data[i,1]<0) { 
+    MSFT.data[i,1]=0 }
+  else { 
+    MSFT.data[i,1]=1 }
+}
+
+## Create a final holdout sample that's 10% of data
+set.seed(3)
+holdout.indices <- sample(nrow(AAPL.data), 0.1*nrow(AAPL.data))
+AAPL.data.holdout <- AAPL.data[holdout.indices,]
+AAPL.data <- AAPL.data[-holdout.indices,]
+  
+holdout.indices <- sample(nrow(MSFT.data), 0.1*nrow(MSFT.data))
+MSFT.data.holdout <- MSFT.data[holdout.indices,]
+MSFT.data <- MSFT.data[-holdout.indices,]
+
+## formate data for DNN
+AAPL.x.holdout<- model.matrix(change ~ ., data=AAPL.data.holdout)[,-1]
+AAPL.y.holdout<- AAPL.data.holdout$change
+
+AAPL.x.data<- model.matrix(change ~ ., data=AAPL.data)[,-1]
+AAPL.y.data<- AAPL.data$change
+
+#rescale (unit variance and zero mean)
+mean <- apply(AAPL.x.data,2,mean)
+std <- apply(AAPL.x.data,2,sd)
+x_train <- scale(AAPL.x.data,center = mean, scale = std)
+y_train <- as.numeric(AAPL.y.data)
+x_test <- scale(AAPL.x.holdout,center = mean, scale = std)
+y_test <- as.numeric(AAPL.y.holdout) 
+
+num.inputs <- ncol(x_test)
+
+model <- keras_model_sequential() %>%
+  layer_dense(units=30, kernel_regularizer = regularizer_l1(0.001), activation="relu",input_shape = c(num.inputs)) %>%
+  layer_dense(units=15, kernel_regularizer = regularizer_l1(0.001), activation="relu") %>%
+  layer_dense(units=1,activation="sigmoid")
+
+model %>% compile(
+  loss = 'binary_crossentropy',
+  optimizer = optimizer_rmsprop(),
+  metrics = c('accuracy')
+)
+
+#model %>% compile(
+#  loss = 'binary_crossentropy',
+#  optimizer = 'sgd',
+#  metrics = c('accuracy')
+#)
+
+history <- model %>% fit(
+  x_train, y_train, 
+  epochs = 25, batch_size =512, 
+  validation_split = 0.1
+)
+
+results.NN2 <- model %>% evaluate(x_test,y_test)
+results.NN2
+
+#### NN for MSFT
+
+## formate data for DNN
+MSFT.x.holdout<- model.matrix(change ~ ., data=MSFT.data.holdout)[,-1]
+MSFT.y.holdout<- MSFT.data.holdout$change
+
+MSFT.x.data<- model.matrix(change ~ ., data=MSFT.data)[,-1]
+MSFT.y.data<- MSFT.data$change
+
+#rescale (unit variance and zero mean)
+mean <- apply(MSFT.x.data,2,mean)
+std <- apply(MSFT.x.data,2,sd)
+x_train <- scale(MSFT.x.data,center = mean, scale = std)
+y_train <- as.numeric(MSFT.y.data)
+x_test <- scale(MSFT.x.holdout,center = mean, scale = std)
+y_test <- as.numeric(MSFT.y.holdout) 
+
+num.inputs <- ncol(x_test)
+
+model <- keras_model_sequential() %>%
+  layer_dense(units=30, kernel_regularizer = regularizer_l1(0.001), activation="relu",input_shape = c(num.inputs)) %>%
+  layer_dense(units=15, kernel_regularizer = regularizer_l1(0.001), activation="relu") %>%
+  layer_dense(units=1,activation="sigmoid")
+
+model %>% compile(
+  loss = 'binary_crossentropy',
+  optimizer = optimizer_rmsprop(),
+  metrics = c('accuracy')
+)
+
+#model %>% compile(
+#  loss = 'binary_crossentropy',
+#  optimizer = 'sgd',
+#  metrics = c('accuracy')
+#)
+
+history <- model %>% fit(
+  x_train, y_train, 
+  epochs = 25, batch_size =512, 
+  validation_split = 0.1
+)
+
+results.NN2 <- model %>% evaluate(x_test,y_test)
+results.NN2
+
+#### other modeling choices 
+
+## baseline logistic regression
+## K Fold Cross Validation
+AAPL.mod1<-glm(change~., data=AAPL.data,family="binomial")
+summary(AAPL.mod1)
+
+print('Thank you for running our codes :) We hope it works')
